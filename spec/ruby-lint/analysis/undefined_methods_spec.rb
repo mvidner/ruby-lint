@@ -341,4 +341,25 @@ foo.bar
       report.entries.empty?.should == true
     end
   end
+
+  context 'singleton class' do
+    it 'does not add errors for one method calling another' do
+      code = <<-CODE
+class Foo
+  class << self
+    def foo
+    end
+
+    def bar
+      foo
+    end
+  end
+end
+      CODE
+
+      report = build_report(code, RubyLint::Analysis::UndefinedMethods)
+
+      report.entries.empty?.should == true
+    end
+  end
 end
