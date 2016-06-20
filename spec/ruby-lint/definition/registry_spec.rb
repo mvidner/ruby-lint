@@ -73,6 +73,83 @@ describe RubyLint::Definition::Registry do
     end
   end
 
+  context 'merging definitions' do
+    def register_outer(registry)
+      registry.register('Project') do |defs|
+        defs.define_constant('Project') do |klass|
+          klass.inherits(defs.constant_proxy('Object', registry))
+          klass.define_method('hello')
+        end
+      end
+    end
+
+    def register_inner(registry)
+      registry.register('Project::UI') do |defs|
+        defs.define_constant('Project::UI') do |klass|
+          klass.inherits(defs.constant_proxy('Object', registry))
+          klass.define_method('widget_exists') do |method|
+            method.define_rest_argument('args')
+          end
+        end
+      end
+    end
+
+    def register_nested(registry)
+      registry.register('Project') do |defs|
+        defs.define_constant('Project') do |klass|
+          klass.inherits(defs.constant_proxy('Object', RubyLint.registry))
+        end
+        defs.define_constant('Project::UI') do |klass|
+          klass.inherits(defs.constant_proxy('Object', registry))
+          klass.define_method('widget_exists') do |method|
+            method.define_rest_argument('args')
+          end
+        end
+      end
+    end
+
+    def check_merged
+      @root.lookup(:const, 'Project')
+        .has_definition?(:method, 'hello')
+        .should == true
+      @root.lookup(:const, 'Project')
+        .lookup(:const, 'UI')
+        .has_definition?(:method, 'widget_exists')
+        .should == true
+    end
+
+    before do
+      @root = ruby_object.new
+    end
+
+    it 'merges the definitions when the outer namespace is applied first' do
+      register_outer(@registry)
+      register_inner(@registry)
+      @registry.apply('Project', @root)
+      @registry.apply('Project::UI', @root)
+
+      check_merged
+    end
+
+    it 'merges the definitions when the inner namespace is applied first' do
+      register_inner(@registry)
+      register_outer(@registry)
+      @registry.apply('Project::UI', @root)
+      @registry.apply('Project', @root)
+
+      check_merged
+    end
+
+    it 'merges the definitions when the nested namespace is applied first' do
+      register_nested(@registry)
+      register_outer(@registry)
+      @registry.apply('Project', @root)
+      @registry.apply('Project', @root)
+
+      check_merged
+    end
+  end
+
   context 'managing load paths' do
     before do
       @registry = RubyLint::Definition::Registry.new
