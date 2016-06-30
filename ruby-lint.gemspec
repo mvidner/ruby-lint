@@ -23,7 +23,7 @@ Gem::Specification.new do |s|
     'LICENSE',
     'README.md',
     '*.gemspec'
-  ])
+  ]).reject { |fn| fn.end_with?('~') }
 
   s.executables = ['ruby-lint']
 
